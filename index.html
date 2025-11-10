@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MG S5 Charging Time Calculator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="container">
+
+    <h2>MG S5 Charging Time Calculator</h2>
+
+    <label>Start SOC (%)</label>
+    <input type="number" id="startSOC" value="63">
+
+    <label>End SOC (%)</label>
+    <input type="number" id="endSOC" value="100">
+
+    <label>Battery Size (kWh)</label>
+    <input type="number" id="batteryKWh" value="62">
+
+    <label>Charger Type</label>
+    <select id="chargerType">
+        <option value="DC">DC</option>
+        <option value="AC">AC</option>
+    </select>
+
+    <label>Charger Power (kW)</label>
+    <input type="number" id="powerKW" value="50">
+
+    <button onclick="calculate()">Calculate</button>
+
+    <pre id="output"></pre>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>
