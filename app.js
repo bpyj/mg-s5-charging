@@ -1,12 +1,13 @@
 // SOC Bands: (start, end, DC taper factor, AC loss factor)
 const bands = [
-  [0, 10, 1.20, 1.10],
-  [10, 40, 1.05, 1.10],
-  [40, 60, 1.15, 1.15],
-  [60, 80, 1.60, 1.80],
-  [80, 90, 4.50, 2.20],
-  [90, 100, 9.00, 3.00]
+  [0, 10,   1.20, 1.08],
+  [10, 40,  1.05, 1.08],
+  [40, 60,  1.15, 1.08],
+  [60, 80,  1.60, 1.18],
+  [80, 90,  4.50, 1.28],
+  [90,100,  9.00, 1.60]
 ];
+
 
 function calculate() {
   let start = parseFloat(document.getElementById("startSOC").value);
@@ -46,6 +47,7 @@ function calculate() {
   let totalEnergy = segments.reduce((s, x) => s + x.energy, 0);
   let totalHours = segments.reduce((s, x) => s + x.adjusted, 0);
   let totalMin = totalHours * 60;
+  let totalHoursRounded = totalHours.toFixed(2);
 
   let out = "";
   out += "SOC Slice   | Energy (kWh) | Time (min)\n";
@@ -57,6 +59,8 @@ function calculate() {
   out += "\n------------------------\n";
   out += `Total Energy: ${totalEnergy.toFixed(2)} kWh\n`;
   out += `Total Time:   ${totalMin.toFixed(1)} minutes\n`;
+  out += `              ${totalHoursRounded} hours\n`;
 
   document.getElementById("output").textContent = out;
+
 }
