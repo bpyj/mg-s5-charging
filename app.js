@@ -61,6 +61,24 @@ function calculate() {
   out += `Total Time:   ${totalMin.toFixed(1)} minutes\n`;
   out += `              ${totalHoursRounded} hours\n`;
 
+  // ✅ OPTIONAL COST: read UI signals from index.html
+  const costUI = window.__COST_UI__;
+  if (costUI && costUI.wantCost.checked) {
+    const providerName = costUI.providerSel.value || "Custom";
+    const price = parseFloat(costUI.priceInp.value);
+    if (!isNaN(price) && price >= 0) {
+      const cost = totalEnergy * price;
+      out += "\n------------------------\n";
+      out += "COST ESTIMATE\n";
+      out += `Provider:   ${providerName}\n`;
+      out += `Price:      $${price.toFixed(3)} / kWh\n`;
+      out += `Energy:     ${totalEnergy.toFixed(2)} kWh\n`;
+      out += `Total Cost: $${cost.toFixed(2)}\n`;
+    } else {
+      out += "\n[Cost] Please enter a valid price ($/kWh).\n";
+    }
+  }
+
   document.getElementById("output").textContent = out;
 
 }
