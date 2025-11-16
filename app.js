@@ -3,11 +3,36 @@ const bands = [
   [0, 10,   1.20, 1.08],
   [10, 40,  1.05, 1.08],
   [40, 60,  1.15, 1.08],
-  [60, 80,  1.60, 1.80], // ← AC calibrated: 69→72% takes ~27 min
+  [60, 80,  1.60, 1.80], // ← AC calibrated: 69→72% takes ~27 min @ 7.4 kW
   [80, 90,  4.50, 1.28],
   [90,100,  9.00, 1.60]
 ];
 
+// ---- helper: adaptive AC factor based on power & SOC band ----
+function acFactorForBand(acBase, bandHi, powerKw) {
+  // For low SOC bands (<60%), just use base factor
+  if (bandHi < 60) return acBase;
+
+  // Target factors at low-power AC (~3.0 kW)
+  const lowTargets = {
+    80: 1.05, // 60–80%
+    90: 1.20, // 80–90%
+    100: 1.40 // 90–100%
+  };
+  const low = lowTargets[bandHi] ?? acBase;
+
+  const lowPower = 3.0;
+  const highPower = 7.4;
+
+  // Clamp power into [3.0, 7.4]
+  const p = Math.max(lowPower, Math.min(highPower, powerKw));
+
+  // t = 0 at 3.0 kW, t = 1 at 7.4 kW
+  const t = (p - lowPower) / (highPower - lowPower);
+
+  // Blend between low factor and base factor
+  return low * (1 - t) + acBase * t;
+}
 
 function calculate() {
   let start = parseFloat(document.getElementById("startSOC").value);
@@ -27,10 +52,11 @@ function calculate() {
 
       let factor;
       if (type === "AC") {
-        factor = acFactor;
+        // use adaptive AC factor
+        factor = acFactorForBand(acFactor, bEnd, power);
       } else { // DC
         if (power >= 120) {
-          factor = dcFactor;
+          factor = dcFactor; // HPC: strong taper
         } else {
           // updated slow DC taper calibration
           if (bEnd <= 80) factor = 1.20;
@@ -80,5 +106,4 @@ function calculate() {
   }
 
   document.getElementById("output").textContent = out;
-
 }
