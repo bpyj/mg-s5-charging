@@ -1,95 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>MG S5 Charging Time Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <div class="container">
-    <h2>MG S5 Charging Time Calculator</h2>
+    <h1>MG S5 Charging Time Calculator</h1>
 
-    <label>Start SOC (%)</label>
-    <input type="number" id="startSOC" value="63" />
+    <label for="startSOC">Start SOC (%)</label>
+    <input type="number" id="startSOC" value="73" min="0" max="99" />
 
-    <label>End SOC (%)</label>
-    <input type="number" id="endSOC" value="100" />
+    <label for="endSOC">End SOC (%)</label>
+    <input type="number" id="endSOC" value="86" min="1" max="100" />
 
-    <label>Battery Size (kWh)</label>
-    <input type="number" id="batteryKWh" value="62" />
+    <label for="batteryKWh">Battery Size (kWh)</label>
+    <input type="number" id="batteryKWh" value="62" min="1" step="0.1" />
 
-    <label>Charger Type</label>
+    <label for="chargerType">Charger Type</label>
     <select id="chargerType">
-      <option value="DC">DC</option>
       <option value="AC">AC</option>
+      <option value="DC">DC</option>
     </select>
 
-    <label>Charger Power (kW)</label>
-    <input type="number" id="powerKW" value="50" />
+    <label for="powerKW">Charger Power (kW)</label>
+    <input type="number" id="powerKW" value="22" min="0.1" step="0.1" />
 
-    <button onclick="calculate()">Calculate</button>
+    <button id="calcBtn" onclick="calculate()">Calculate</button>
 
-    <!-- Optional cost section -->
-    <hr style="margin:18px 0" />
-    <label class="inline">
-      <input type="checkbox" id="wantCost" />
-      Also calculate cost
-    </label>
+    <hr />
 
-    <div id="costFields" style="display:none; margin-top:8px;">
-      <label>Provider (preset)</label>
-      <select id="provider">
-        <option value="">— choose or leave blank —</option>
-        <option value="SP DC">SP DC</option>
-        <option value="SP AC">SP AC</option>
-        <option value="VOLT DC">VOLT DC</option>
-        <option value="CDG ENGIE AC">CDG ENGIE AC</option>
-        <option value="Custom">Custom</option>
-      </select>
-
-      <label>Price ($/kWh)</label>
-      <input type="number" id="priceKWh" step="0.001" placeholder="e.g. 0.55" />
-      <small style="color:#666; display:block; margin-top:6px;">
-        Tip: enter the charger’s posted price. Presets are just defaults—you can edit.
-        For AC, use the posted tariff (do <em>not</em> reduce for losses; the calculator already accounts for them).
-      </small>
+    <!-- Cost section -->
+    <div class="cost-row">
+      <input type="checkbox" id="costToggle" />
+      <label for="costToggle" class="inline-label">Also calculate cost</label>
     </div>
 
-    <pre id="output">Ready ✅
-Fill in your charging details and press CALCULATE.</pre>
+    <div id="costControls">
+      <label for="providerSelect">Provider</label>
+      <select id="providerSelect">
+        <option value="">Custom / Other</option>
+        <option value="CDG">CDG</option>
+        <option value="SP">SP Group</option>
+        <option value="Volt">Volt</option>
+        <option value="TE">TE</option>
+      </select>
+
+      <label for="pricePerKWh">Price ($/kWh)</label>
+      <input type="number" id="pricePerKWh" value="" min="0" step="0.001" placeholder="e.g. 0.58" />
+    </div>
+
+    <pre id="output">Insert values above and press "Calculate".</pre>
   </div>
 
   <script src="app.js"></script>
-  <script>
-    // Show/hide cost inputs
-    const wantCost = document.getElementById('wantCost');
-    const costFields = document.getElementById('costFields');
-    wantCost.addEventListener('change', () => {
-      costFields.style.display = wantCost.checked ? 'block' : 'none';
-    });
-
-    // Provider presets (editable). Update to your current local rates if needed.
-    const providerRates = {
-      'SP DC': 0.828,
-      'SP AC': 0.51,
-      'VOLT DC': 0.51,
-      'CDG ENGIE AC': 0.675
-    };
-
-    // Auto-fill price when provider changes (user can still edit)
-    const providerSel = document.getElementById('provider');
-    const priceInp = document.getElementById('priceKWh');
-    providerSel.addEventListener('change', () => {
-      const p = providerSel.value;
-      if (providerRates[p] !== undefined) {
-        priceInp.value = providerRates[p];
-      } else if (!p) {
-        priceInp.value = '';
-      }
-    });
-
-    // Expose to app.js (read-only)
-    window.__COST_UI__ = { wantCost, providerSel, priceInp };
-  </script>
 </body>
 </html>

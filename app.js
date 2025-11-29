@@ -1,97 +1,163 @@
-// SOC Bands: (start, end, DC taper factor, AC loss factor)
+// ----------------------------------------------------
+// SOC bands: [start, end, DC taper factor, AC loss factor]
+// Mirrors latest Python version (with softer AC factors).
+// ----------------------------------------------------
 const bands = [
-  [0, 10,   1.20, 1.08],
-  [10, 40,  1.05, 1.08],
-  [40, 60,  1.15, 1.08],
-  [60, 80,  1.60, 1.80], // ← AC calibrated: 69→72% takes ~27 min @ 7.4 kW
-  [80, 90,  4.50, 1.28],
-  [90,100,  9.00, 1.60]
+  [0, 10, 1.20, 1.10],
+  [10, 40, 1.05, 1.10],
+  [40, 60, 1.15, 1.10],
+  [60, 80, 1.60, 1.10], // AC: mild losses
+  [80, 90, 4.50, 1.15],
+  [90, 100, 9.00, 1.25],
 ];
 
-// ---- helper: adaptive AC factor based on power & SOC band ----
-function acFactorForBand(acBase, bandHi, powerKw) {
-  // For low SOC bands (<60%), just use base factor
-  if (bandHi < 60) return acBase;
+// simple preset $/kWh per provider (edit anytime)
+const PROVIDER_PRICES = {
+  CDG: 0.55,
+  SP: 0.55,
+  Volt: 0.55,
+  TE: 0.58,
+};
 
-  // Target factors at low-power AC (~3.0 kW)
-  const lowTargets = {
-    80: 1.05, // 60–80%
-    90: 1.20, // 80–90%
-    100: 1.40 // 90–100%
+window.addEventListener("DOMContentLoaded", () => {
+  const costToggle = document.getElementById("costToggle");
+  const providerSel = document.getElementById("providerSelect");
+  const priceInp = document.getElementById("pricePerKWh");
+
+  // Expose cost UI to calculate()
+  window.__COST_UI__ = {
+    wantCost: costToggle,
+    providerSel,
+    priceInp,
   };
-  const low = lowTargets[bandHi] ?? acBase;
 
-  const lowPower = 3.0;
-  const highPower = 7.4;
-
-  // Clamp power into [3.0, 7.4]
-  const p = Math.max(lowPower, Math.min(highPower, powerKw));
-
-  // t = 0 at 3.0 kW, t = 1 at 7.4 kW
-  const t = (p - lowPower) / (highPower - lowPower);
-
-  // Blend between low factor and base factor
-  return low * (1 - t) + acBase * t;
-}
+  // When provider changes, put a suggested price if we have one
+  providerSel.addEventListener("change", () => {
+    const p = PROVIDER_PRICES[providerSel.value];
+    if (p !== undefined) {
+      priceInp.value = p.toFixed(3);
+    }
+  });
+});
 
 function calculate() {
-  let start = parseFloat(document.getElementById("startSOC").value);
-  let end = parseFloat(document.getElementById("endSOC").value);
-  let battery = parseFloat(document.getElementById("batteryKWh").value);
-  let type = document.getElementById("chargerType").value.toUpperCase();
-  let power = parseFloat(document.getElementById("powerKW").value);
+  const start = parseFloat(document.getElementById("startSOC").value);
+  const end = parseFloat(document.getElementById("endSOC").value);
+  const battery = parseFloat(document.getElementById("batteryKWh").value);
+  const type = document
+    .getElementById("chargerType")
+    .value.toUpperCase();
+  const power = parseFloat(document.getElementById("powerKW").value);
+
+  const outEl = document.getElementById("output");
+
+  if (
+    isNaN(start) ||
+    isNaN(end) ||
+    isNaN(battery) ||
+    isNaN(power) ||
+    !(type === "AC" || type === "DC")
+  ) {
+    outEl.textContent =
+      "Please enter valid numbers for SOC, battery size and charger power.";
+    return;
+  }
+
+  if (!(start >= 0 && end <= 100 && end > start)) {
+    outEl.textContent =
+      "Start SOC must be ≥ 0, End SOC ≤ 100, and End > Start.";
+    return;
+  }
 
   let segments = [];
 
+  // 1) Build segments per SOC band
   for (let b of bands) {
-    let [bStart, bEnd, dcFactor, acFactor] = b;
-    let overlap = Math.max(0, Math.min(end, bEnd) - Math.max(start, bStart));
-    if (overlap > 0) {
-      let energy = battery * (overlap / 100);
-      let baseHours = energy / power;
+    const [bStart, bEnd, dcFactor, acFactor] = b;
 
-      let factor;
-      if (type === "AC") {
-        // use adaptive AC factor
-        factor = acFactorForBand(acFactor, bEnd, power);
-      } else { // DC
-        if (power >= 120) {
-          factor = dcFactor; // HPC: strong taper
-        } else {
-          // updated slow DC taper calibration
-          if (bEnd <= 80) factor = 1.20;
-          else if (bEnd <= 90) factor = 1.55;
-          else factor = 2.35;
-        }
-      }
+    const overlap = Math.max(
+      0,
+      Math.min(end, bEnd) - Math.max(start, bStart)
+    );
+    if (overlap <= 0) continue;
 
-      let adjusted = baseHours * factor;
-      segments.push({ bStart, bEnd, overlap, energy, baseHours, factor, adjusted });
+    const energy = battery * (overlap / 100); // kWh
+
+    // 2) MG S5 AC limit: 6.6 kW max from wall
+    let effectivePower = power;
+    if (type === "AC") {
+      effectivePower = Math.min(power, 6.6);
     }
+
+    const baseHours = energy / effectivePower;
+
+    // 3) Taper / loss factors
+    let factor;
+    if (type === "AC") {
+      factor = acFactor; // fixed AC band factor
+    } else {
+      // DC logic:
+      if (power >= 120) {
+        // HPC
+        factor = dcFactor;
+      } else {
+        // slow DC taper
+        if (bEnd <= 80) factor = 1.20;
+        else if (bEnd <= 90) factor = 1.55;
+        else factor = 2.35;
+      }
+    }
+
+    const adjusted = baseHours * factor;
+
+    segments.push({
+      bStart,
+      bEnd,
+      overlap,
+      energy,
+      baseHours,
+      factor,
+      adjusted,
+      effectivePower,
+    });
   }
 
-  let totalEnergy = segments.reduce((s, x) => s + x.energy, 0);
-  let totalHours = segments.reduce((s, x) => s + x.adjusted, 0);
-  let totalMin = totalHours * 60;
-  let totalHoursRounded = totalHours.toFixed(2);
+  if (!segments.length) {
+    outEl.textContent =
+      "SOC range does not overlap any bands. Check your Start/End SOC.";
+    return;
+  }
 
+  // 4) Totals
+  const totalEnergy = segments.reduce((s, x) => s + x.energy, 0);
+  const totalHours = segments.reduce((s, x) => s + x.adjusted, 0);
+  const totalMin = totalHours * 60;
+
+  // 5) Build text output
   let out = "";
+
   out += "SOC Slice   | Energy (kWh) | Time (min)\n";
   out += "------------|--------------|----------\n";
-  segments.forEach(s => {
-    out += `${s.bStart}-${s.bEnd}%      | ${s.energy.toFixed(2)} kWh     | ${(s.adjusted*60).toFixed(1)}\n`;
+  segments.forEach((s) => {
+    const slice = `${s.bStart}-${s.bEnd}%`;
+    const mins = s.adjusted * 60;
+    out += `${slice.padEnd(11)} | ${s.energy
+      .toFixed(2)
+      .padStart(6)} kWh   | ${mins.toFixed(1).padStart(6)}\n`;
   });
 
   out += "\n------------------------\n";
   out += `Total Energy: ${totalEnergy.toFixed(2)} kWh\n`;
   out += `Total Time:   ${totalMin.toFixed(1)} minutes\n`;
-  out += `              ${totalHoursRounded} hours\n`;
+  out += `              ${totalHours.toFixed(2)} hours\n`;
 
-  // ✅ OPTIONAL COST: read UI signals from index.html
+  // 6) Optional cost block
   const costUI = window.__COST_UI__;
   if (costUI && costUI.wantCost.checked) {
-    const providerName = costUI.providerSel.value || "Custom";
+    const providerName =
+      costUI.providerSel.value || "Custom / Other";
     const price = parseFloat(costUI.priceInp.value);
+
     if (!isNaN(price) && price >= 0) {
       const cost = totalEnergy * price;
       out += "\n------------------------\n";
@@ -105,5 +171,5 @@ function calculate() {
     }
   }
 
-  document.getElementById("output").textContent = out;
+  outEl.textContent = out;
 }
