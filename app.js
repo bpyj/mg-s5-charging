@@ -19,6 +19,9 @@ const PROVIDER_PRICES = {
   TE: 0.58,
 };
 
+// 🔹 same as Python: when load sharing, we assume ~55% power
+const LOAD_SHARE_FACTOR = 0.55;
+
 window.addEventListener("DOMContentLoaded", () => {
   const costToggle = document.getElementById("costToggle");
   const providerSel = document.getElementById("providerSelect");
@@ -48,6 +51,9 @@ function calculate() {
     .getElementById("chargerType")
     .value.toUpperCase();
   const power = parseFloat(document.getElementById("powerKW").value);
+
+  // 🔹 NEW: load sharing flag
+  const loadShared = document.getElementById("loadShareToggle").checked;
 
   const outEl = document.getElementById("output");
 
@@ -83,10 +89,16 @@ function calculate() {
 
     const energy = battery * (overlap / 100); // kWh
 
-    // 2) MG S5 AC limit: 6.6 kW max from wall
+    // 2) MG S5 AC limit: 6.6 kW max from wall,
+    //    then optional load-sharing reduction.
     let effectivePower = power;
     if (type === "AC") {
       effectivePower = Math.min(power, 6.6);
+    }
+
+    // 🔹 apply load sharing (AC or DC) AFTER base selection
+    if (loadShared) {
+      effectivePower *= LOAD_SHARE_FACTOR;
     }
 
     const baseHours = energy / effectivePower;
@@ -94,7 +106,7 @@ function calculate() {
     // 3) Taper / loss factors
     let factor;
     if (type === "AC") {
-      factor = acFactor; // fixed AC band factor
+      factor = acFactor; // band-based AC factor
     } else {
       // DC logic:
       if (power >= 120) {
@@ -150,6 +162,7 @@ function calculate() {
   out += `Total Energy: ${totalEnergy.toFixed(2)} kWh\n`;
   out += `Total Time:   ${totalMin.toFixed(1)} minutes\n`;
   out += `              ${totalHours.toFixed(2)} hours\n`;
+  out += `Load sharing: ${loadShared ? "Yes" : "No"}\n`;
 
   // 6) Optional cost block
   const costUI = window.__COST_UI__;

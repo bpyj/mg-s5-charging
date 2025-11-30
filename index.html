@@ -32,11 +32,19 @@
     <!-- 🔹 MG S5 charging limits note -->
     <p style="font-size:12px; color:#555; margin-top:6px; line-height:1.4;">
       <strong>MG S5 limits:</strong><br>
-      • <strong>AC:</strong> On-board charger is limited to <strong>6.6&nbsp;kW</strong>.  
+      • <strong>AC:</strong> On-board charger is limited to <strong>6.6&nbsp;kW</strong>.
         Even if you enter 7.4&nbsp;kW or 22&nbsp;kW, the calculator caps AC power at 6.6&nbsp;kW internally.<br>
-      • <strong>DC:</strong> Brochure max DC power is <strong>150&nbsp;kW</strong>.  
+      • <strong>DC:</strong> Brochure max DC power is <strong>150&nbsp;kW</strong>.
         This tool treats DC&nbsp;≥&nbsp;120&nbsp;kW as high-power (strong taper) and DC&nbsp;&lt;&nbsp;120&nbsp;kW as slow DC with gentler taper based on real sessions.
     </p>
+
+    <!-- 🔹 NEW: Load sharing toggle -->
+    <div class="cost-row">
+      <input type="checkbox" id="loadShareToggle" />
+      <label for="loadShareToggle" class="inline-label">
+        Charger is load-shared with another car
+      </label>
+    </div>
 
     <button id="calcBtn" onclick="calculate()">Calculate</button>
 
@@ -59,7 +67,14 @@
       </select>
 
       <label for="pricePerKWh">Price ($/kWh)</label>
-      <input type="number" id="pricePerKWh" value="" min="0" step="0.001" placeholder="e.g. 0.58" />
+      <input
+        type="number"
+        id="pricePerKWh"
+        value=""
+        min="0"
+        step="0.001"
+        placeholder="e.g. 0.58"
+      />
     </div>
 
     <pre id="output">Insert values above and press "Calculate".</pre>
